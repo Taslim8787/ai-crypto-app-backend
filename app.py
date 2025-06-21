@@ -13,7 +13,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # --- EXPLICIT CORS CONFIGURATION ---
-# This is more robust and tells browsers that any origin (*) is allowed.
+# This tells your server to accept requests from your frontend
 CORS(app, resources={r"/analyze/*": {"origins": "*"}})
 CORS(app, resources={r"/health": {"origins": "*"}})
 # --- END CORS CONFIGURATION ---
