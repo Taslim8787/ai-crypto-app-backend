@@ -2,7 +2,7 @@
 
 import os
 from flask import Flask, jsonify
-from flask_cors import CORS  # <-- 1. IMPORT CORS
+from flask_cors import CORS  # Import CORS
 import requests
 from dotenv import load_dotenv
 
@@ -11,7 +11,13 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # <-- 2. INITIALIZE CORS FOR YOUR APP
+
+# --- EXPLICIT CORS CONFIGURATION ---
+# This is more robust and tells browsers that any origin (*) is allowed.
+CORS(app, resources={r"/analyze/*": {"origins": "*"}})
+CORS(app, resources={r"/health": {"origins": "*"}})
+# --- END CORS CONFIGURATION ---
+
 
 # --- API Keys (loaded from environment variables) ---
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
@@ -35,7 +41,6 @@ def get_coin_data(coin_id):
         return None
 
 # --- Main API Endpoint for Crypto Data ---
-# This endpoint now just returns data, no AI.
 
 @app.route('/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
@@ -46,7 +51,7 @@ def analyze_crypto(coin_symbol):
 
     coin_data = get_coin_data(coin_id)
     if not coin_data:
-        return jsonify({"error": f"Could not retrieve real-time data for {coin_symbol}. Check symbol or CoinGecko API key."}), 404
+        return jsonify({"error": f"Could not retrieve real-time data for {coin_id}. Check the coin ID."}), 404
 
     current_price = coin_data['market_data']['current_price']['usd']
     market_cap = coin_data['market_data']['market_cap']['usd']
@@ -59,7 +64,7 @@ def analyze_crypto(coin_symbol):
         "current_price": current_price,
         "market_cap": market_cap,
         "volume_24h": volume_24h,
-        "ai_analysis": "AI analysis is currently unavailable. Check back later." # Placeholder
+        "ai_analysis": "AI analysis is currently unavailable. Check back later."
     })
 
 # --- Simple Health Check Endpoint ---
@@ -69,5 +74,4 @@ def health_check():
 
 # Run the app locally
 if __name__ == '__main__':
-    # The 'gunicorn' server Render uses will handle the host and port
     app.run(debug=True, host='0.0.0.0', port=5000)
