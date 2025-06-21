@@ -2,6 +2,7 @@
 
 import os
 from flask import Flask, jsonify
+from flask_cors import CORS  # <-- 1. IMPORT CORS
 import requests
 from dotenv import load_dotenv
 
@@ -10,6 +11,7 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app)  # <-- 2. INITIALIZE CORS FOR YOUR APP
 
 # --- API Keys (loaded from environment variables) ---
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
