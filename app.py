@@ -2,28 +2,31 @@
 
 import os
 from flask import Flask, jsonify
-from flask_cors import CORS  # Import CORS
+from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
+from flask_sqlalchemy import SQLAlchemy # <-- NEW IMPORT
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}}) # Allow all routes for simplicity
 
-# --- EXPLICIT CORS CONFIGURATION ---
-# This tells your server to accept requests from your frontend
-CORS(app, resources={r"/analyze/*": {"origins": "*"}})
-CORS(app, resources={r"/health": {"origins": "*"}})
-# --- END CORS CONFIGURATION ---
+# --- Database Configuration ---
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app) # <-- INITIALIZE DATABASE
+# --- END Database Configuration ---
 
 
 # --- API Keys (loaded from environment variables) ---
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
 
-# --- DEBUG LINES: Verify API Key Loading ---
-print(f"DEBUG: CoinGecko API Key loaded: {COINGECKO_API_KEY[:5]}...{COINGECKO_API_KEY[-5:] if COINGECKO_API_KEY else 'None'}")
+# --- DEBUG LINES ---
+print(f"DEBUG: CoinGecko API Key loaded: {'Yes' if COINGECKO_API_KEY else 'No'}")
+print(f"DEBUG: Database URL loaded: {'Yes' if os.getenv('DATABASE_URL') else 'No'}")
 # --- END DEBUG LINES ---
 
 
@@ -44,11 +47,11 @@ def get_coin_data(coin_id):
 
 @app.route('/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
+    # This function remains the same for now
     if not COINGECKO_API_KEY:
         return jsonify({"error": "CoinGecko API key missing."}), 500
 
     coin_id = coin_symbol.lower()
-
     coin_data = get_coin_data(coin_id)
     if not coin_data:
         return jsonify({"error": f"Could not retrieve real-time data for {coin_id}. Check the coin ID."}), 404
@@ -70,7 +73,19 @@ def analyze_crypto(coin_symbol):
 # --- Simple Health Check Endpoint ---
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "ok", "message": "Backend is running!"}), 200
+    try:
+        # Test database connection
+        db.session.execute('SELECT 1')
+        db_status = "ok"
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        db_status = "error"
+    
+    return jsonify({
+        "status": "ok",
+        "message": "Backend is running!",
+        "database_connection": db_status
+    }), 200
 
 # Run the app locally
 if __name__ == '__main__':
