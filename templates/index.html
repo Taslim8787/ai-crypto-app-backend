@@ -15,13 +15,25 @@
         </div>
         <div id="loading" class="hidden"><p>Analyzing...</p></div>
         <div id="result" class="result-section hidden">
-            <h2>Analysis for <span id="coinName"></span></h2>
-            <p><strong>Price:</strong> $<span id="currentPrice"></span></p>
+            <h2>Analysis for <span id="coinNameDisplay"></span></h2>
+            <p><strong>Price:</strong> $<span id="currentPriceDisplay"></span></p>
             <h3>AI Analysis:</h3>
             <div id="aiAnalysisContent" class="ai-analysis"></div>
+            <!-- NEW BUTTON for adding to watchlist -->
+            <button id="addToWatchlistButton" class="hidden" style="margin-top: 15px;">Add to Watchlist</button>
+            <p id="add-message" class="hidden" style="margin-top: 10px; color: #d4edda;"></p>
         </div>
         <div id="error" class="error-section hidden"><p id="errorMessage"></p></div>
-        <p style="margin-top: 20px;"><a href="/login" style="color: #007bff;">Login</a> | <a href="/register" style="color: #007bff;">Register</a></p>
+        
+        <!-- UPDATED Navigation Links -->
+        <div id="nav-links" style="margin-top: 20px;">
+            <p>
+                <a href="/login" style="color: #007bff;">Login</a> | 
+                <a href="/register" style="color: #007bff;">Register</a> | 
+                <a href="/watchlist" style="color: #007bff;">My Watchlist</a>
+            </p>
+            <button id="logoutButton" class="hidden" style="margin-top: 10px; background-color: #dc3545;">Logout</button>
+        </div>
     </div>
     <script src="/static/script.js"></script>
 </body>
