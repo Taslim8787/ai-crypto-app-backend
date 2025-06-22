@@ -1,4 +1,4 @@
-# app.py - Final Watchlist Fix (Remove create_all)
+# app.py - Final JWT Config Fix
 
 import os
 from flask import Flask, jsonify, request, render_template
@@ -11,11 +11,19 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 # Initialize App and Configs
 load_dotenv()
 app = Flask(__name__, static_folder='static', template_folder='templates')
+
+# --- JWT Configuration ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
+# --- THIS IS THE CRUCIAL NEW LINE ---
+app.config["JWT_DECODE_JSON"] = False # Prevents JWT from interfering with our request body
+jwt = JWTManager(app)
+# --- END JWT Configuration ---
+
+# --- Database Configuration ---
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-jwt = JWTManager(app)
 db = SQLAlchemy(app)
+# --- END Database Configuration ---
 
 # --- DATABASE MODELS ---
 class User(db.Model):
@@ -35,7 +43,9 @@ class WatchlistItem(db.Model):
     def serialize(self):
         return {'id': self.id, 'coin_id': self.coin_id}
 
-# --- The create_all() block has been removed ---
+# --- Create DB Tables on Startup (This is fine to leave in) ---
+with app.app_context():
+    db.create_all()
 
 # --- Frontend Routes ---
 @app.route('/')
