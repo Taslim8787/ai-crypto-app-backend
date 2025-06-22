@@ -14,7 +14,11 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+
+# --- THIS IS THE SIMPLEST & MOST ROBUST CORS SETTING ---
+# This applies CORS headers to all routes for all origins and methods
+CORS(app)
+# --- END CORS FIX ---
 
 # --- JWT Configuration ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "a-default-fallback-secret-key")
@@ -54,7 +58,7 @@ def register_user():
     db.session.commit()
     return jsonify({"message": f"User '{data.get('username')}' created successfully"}), 201
 
-# --- CORRECTED User Login Endpoint ---
+# --- User Login Endpoint ---
 @app.route('/login', methods=['POST'])
 def login_user():
     data = request.get_json()
@@ -66,25 +70,19 @@ def login_user():
 
     user = User.query.filter_by(username=username).first()
 
-    # --- THIS IS THE FIX ---
-    # First, check if the user was found. If not, it's invalid credentials.
     if not user:
         return jsonify({"error": "Invalid username or password"}), 401
 
-    # Only if the user exists, then check the password hash.
     if check_password_hash(user.password_hash, password):
         access_token = create_access_token(identity=user.id)
         return jsonify(access_token=access_token)
     else:
-        # If the password check fails, it's also invalid credentials.
         return jsonify({"error": "Invalid username or password"}), 401
-# --- END: User Login Endpoint ---
-
 
 # --- Other Endpoints ---
+# ... (the /analyze and /health routes remain unchanged)
 @app.route('/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
-    # ... (code is unchanged)
     COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
     if not COINGECKO_API_KEY: return jsonify({"error": "CoinGecko API key missing."}), 500
     coin_id = coin_symbol.lower()
