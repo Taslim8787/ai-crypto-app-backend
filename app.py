@@ -6,7 +6,7 @@ from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash # For password security
 
 # Load environment variables
 load_dotenv()
@@ -25,31 +25,55 @@ db = SQLAlchemy(app)
 # --- API Keys (loaded from environment variables) ---
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
 
-# --- DEBUG LINES ---
-print(f"DEBUG: CoinGecko API Key loaded: {'Yes' if COINGECKO_API_KEY else 'No'}")
-print(f"DEBUG: Database URL loaded: {'Yes' if os.getenv('DATABASE_URL') else 'No'}")
-# --- END DEBUG LINES ---
-
 
 # --- DATABASE MODELS ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False) # Increased length for stronger hashes
 
     def __repr__(self):
         return f'<User {self.username}>'
 # --- END DATABASE MODELS ---
 
 
-# --- WORKAROUND FOR FREE TIER: Create DB Tables on Startup ---
-# This function will run once before the first request to the app
-@app.before_first_request
-def create_tables():
-    print("Creating database tables...")
+# --- Create DB Tables on Startup (if they don't exist) ---
+with app.app_context():
     db.create_all()
-    print("Database tables created.")
+    print("Database tables checked/created.")
 # --- END WORKAROUND ---
+
+
+# --- NEW: User Registration Endpoint ---
+@app.route('/register', methods=['POST'])
+def register_user():
+    # Get the username and password from the incoming JSON request
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    # Check if username and password were provided
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+
+    # Check if the username already exists in the database
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username already exists"}), 409 # 409 is "Conflict"
+
+    # Create a new user instance
+    # We store a HASH of the password, never the plain text password
+    new_user = User(
+        username=username,
+        password_hash=generate_password_hash(password, method='pbkdf2:sha256')
+    )
+
+    # Add the new user to the database
+    db.session.add(new_user)
+    db.session.commit()
+
+    # Return a success message
+    return jsonify({"message": f"User '{username}' created successfully"}), 201 # 201 is "Created"
+# --- END: User Registration Endpoint ---
 
 
 # --- Helper Functions (No Change) ---
@@ -60,8 +84,7 @@ def get_coin_data(coin_id):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching CoinGecko data for {coin_id}: {e}")
+    except Exception as e:
         return None
 
 # --- API Endpoints ---
@@ -78,27 +101,19 @@ def analyze_crypto(coin_symbol):
     volume_24h = coin_data['market_data']['total_volume']['usd']
     name = coin_data['name']
     return jsonify({
-        "coin_symbol": coin_symbol.upper(),
-        "name": name,
-        "current_price": current_price,
-        "market_cap": market_cap,
-        "volume_24h": volume_24h,
+        "coin_symbol": coin_symbol.upper(), "name": name, "current_price": current_price,
+        "market_cap": market_cap, "volume_24h": volume_24h,
         "ai_analysis": "AI analysis is currently unavailable. Check back later."
     })
 
 @app.route('/health', methods=['GET'])
 def health_check():
     try:
-        db.session.execute('SELECT 1')
+        db.session.execute(db.text('SELECT 1')) # Use db.text for SQLAlchemy 2.0+
         db_status = "ok"
     except Exception as e:
-        print(f"Database connection error: {e}")
         db_status = "error"
-    return jsonify({
-        "status": "ok",
-        "message": "Backend is running!",
-        "database_connection": db_status
-    }), 200
+    return jsonify({"status": "ok", "message": "Backend is running!", "database_connection": db_status}), 200
 
 # Run the app locally
 if __name__ == '__main__':
