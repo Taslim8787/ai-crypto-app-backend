@@ -1,43 +1,67 @@
-# app.py - Simplified Auth, NO JWT
+# app.py
 
 import os
-from flask import Flask, jsonify, request, render_template, session # session is new
+from flask import Flask, jsonify, request, render_template
 import requests
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 
+# Initialize App and Configs
 load_dotenv()
 app = Flask(__name__, static_folder='static', template_folder='templates')
-
-# --- Simplified Auth Configuration ---
-# We need a secret key for session management
-app.config["SECRET_KEY"] = os.getenv("JWT_SECRET_KEY") # We can reuse the same secret key
-
-# --- Database Configuration ---
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+jwt = JWTManager(app)
 db = SQLAlchemy(app)
 
+# =================================================================
 # --- DATABASE MODELS ---
+# =================================================================
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     watchlist = db.relationship('WatchlistItem', backref='user', lazy=True, cascade="all, delete-orphan")
+    portfolio = db.relationship('PortfolioItem', backref='user', lazy=True, cascade="all, delete-orphan") # <-- NEW
 
 class WatchlistItem(db.Model):
     __tablename__ = 'watchlist_items'
     id = db.Column(db.Integer, primary_key=True)
     coin_id = db.Column(db.String(100), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    __table_args__ = (db.UniqueConstraint('user_id', 'coin_id', name='_user_coin_uc'),)
     def serialize(self): return {'id': self.id, 'coin_id': self.coin_id}
 
+# --- NEW: PortfolioItem Model ---
+class PortfolioItem(db.Model):
+    __tablename__ = 'portfolio_items'
+    id = db.Column(db.Integer, primary_key=True)
+    coin_id = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    buy_price = db.Column(db.Float, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'coin_id': self.coin_id,
+            'amount': self.amount,
+            'buy_price': self.buy_price
+        }
+# --- END NEW MODEL ---
+
+# --- Create DB Tables on Startup ---
 with app.app_context():
     db.create_all()
 
+# =================================================================
 # --- Frontend Routes ---
+# =================================================================
 @app.route('/')
 def serve_index(): return render_template('index.html')
 @app.route('/login')
@@ -46,12 +70,21 @@ def serve_login(): return render_template('login.html')
 def serve_register(): return render_template('register.html')
 @app.route('/watchlist')
 def serve_watchlist(): return render_template('watchlist.html')
+    
+# --- NEW: Route for the portfolio page ---
+@app.route('/portfolio')
+def serve_portfolio():
+    return render_template('portfolio.html')
 
+# =================================================================
 # --- API ENDPOINTS ---
+# =================================================================
 
+# Auth & Analysis Endpoints (Unchanged)
 @app.route('/api/register', methods=['POST'])
 def register_user():
-    data = request.get_json()
+    # ... logic unchanged
+    data = request.get_json();
     if not data or not data.get('username') or not data.get('password'): return jsonify({"error": "Username and password required"}), 400
     if User.query.filter_by(username=data.get('username')).first(): return jsonify({"error": "Username already exists"}), 409
     new_user = User(username=data.get('username'), password_hash=generate_password_hash(data.get('password')))
@@ -60,44 +93,13 @@ def register_user():
 
 @app.route('/api/login', methods=['POST'])
 def login_user():
+    # ... logic unchanged
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'): return jsonify({"error": "Username and password required"}), 400
     user = User.query.filter_by(username=data.get('username')).first()
     if not user or not check_password_hash(user.password_hash, data.get('password')): return jsonify({"error": "Invalid username or password"}), 401
-    
-    # Instead of JWT, we use Flask's built-in session
-    session['user_id'] = user.id
-    return jsonify({"message": "Login successful"})
-
-@app.route('/api/logout', methods=['POST'])
-def logout_user():
-    session.pop('user_id', None) # Clear the session
-    return jsonify({"message": "Logout successful"})
-
-@app.route('/api/watchlist', methods=['GET'])
-def get_watchlist():
-    if 'user_id' not in session:
-        return jsonify({"error": "Not logged in"}), 401
-    current_user_id = session['user_id']
-    watchlist_items = WatchlistItem.query.filter_by(user_id=current_user_id).all()
-    return jsonify([item.serialize() for item in watchlist_items])
-
-@app.route('/api/watchlist/add', methods=['POST'])
-def add_to_watchlist():
-    if 'user_id' not in session:
-        return jsonify({"error": "Not logged in"}), 401
-    current_user_id = session['user_id']
-    data = request.get_json()
-    coin_id = data.get('coin_id', None)
-    if not coin_id: return jsonify({"error": "Missing 'coin_id'"}), 400
-    
-    existing = WatchlistItem.query.filter_by(user_id=current_user_id, coin_id=coin_id.lower()).first()
-    if existing: return jsonify({"message": f"{coin_id} is already in watchlist"}), 200
-        
-    new_item = WatchlistItem(coin_id=coin_id.lower(), user_id=current_user_id)
-    db.session.add(new_item)
-    db.session.commit()
-    return jsonify({"message": f"Added {coin_id} to watchlist"}), 201
+    access_token = create_access_token(identity=user.id)
+    return jsonify(access_token=access_token)
     
 @app.route('/api/analyze/<coin_id>', methods=['GET'])
 def analyze_crypto(coin_id):
@@ -107,7 +109,71 @@ def analyze_crypto(coin_id):
         r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin_id.lower()}", headers={"x-cg-demo-api-key": COINGECKO_API_KEY})
         r.raise_for_status(); d = r.json()
     except: return jsonify({"error": f"Could not retrieve data for {coin_id}"}), 404
-    return jsonify({ "name": d.get('name'), "current_price": d.get('market_data', {}).get('current_price', {}).get('usd'), "ai_analysis": "AI analysis is currently unavailable." })
+    return jsonify({ "coin_symbol": d.get('symbol', '').upper(), "name": d.get('name'), "current_price": d.get('market_data', {}).get('current_price', {}).get('usd'), "ai_analysis": "AI analysis is currently unavailable." })
+
+# Watchlist Endpoints (Unchanged)
+@app.route('/api/watchlist', methods=['GET'])
+@jwt_required()
+def get_watchlist():
+    # ... logic unchanged
+    current_user_id = get_jwt_identity()
+    items = WatchlistItem.query.filter_by(user_id=current_user_id).all()
+    return jsonify([item.serialize() for item in items])
+
+@app.route('/api/watchlist/add', methods=['POST'])
+@jwt_required()
+def add_to_watchlist():
+    # ... logic unchanged
+    current_user_id = get_jwt_identity()
+    if not request.is_json: return jsonify({"error": "Missing JSON in request"}), 400
+    data = request.get_json()
+    coin_id = data.get('coin_id', None)
+    if not coin_id: return jsonify({"error": "Missing 'coin_id' in request body"}), 400
+    existing = WatchlistItem.query.filter_by(user_id=current_user_id, coin_id=coin_id.lower()).first()
+    if existing: return jsonify({"message": f"{coin_id.capitalize()} is already in watchlist"}), 200
+    new_item = WatchlistItem(coin_id=coin_id.lower(), user_id=current_user_id)
+    db.session.add(new_item); db.session.commit()
+    return jsonify({"message": f"Added {coin_id.capitalize()} to watchlist"}), 201
+
+
+# --- NEW: Portfolio API Endpoints ---
+@app.route('/api/portfolio', methods=['GET'])
+@jwt_required()
+def get_portfolio():
+    current_user_id = get_jwt_identity()
+    portfolio_items = PortfolioItem.query.filter_by(user_id=current_user_id).all()
+    return jsonify([item.serialize() for item in portfolio_items])
+
+@app.route('/api/portfolio/add', methods=['POST'])
+@jwt_required()
+def add_to_portfolio():
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    # Validate incoming data
+    if not data or not data.get('coin_id') or not data.get('amount') or not data.get('buy_price'):
+        return jsonify({"error": "Missing required fields (coin_id, amount, buy_price)"}), 400
+    
+    try:
+        coin_id = data.get('coin_id').lower()
+        amount = float(data.get('amount'))
+        buy_price = float(data.get('buy_price'))
+
+        new_investment = PortfolioItem(
+            coin_id=coin_id,
+            amount=amount,
+            buy_price=buy_price,
+            user_id=current_user_id
+        )
+        db.session.add(new_investment)
+        db.session.commit()
+        return jsonify({"message": f"Added {amount} of {coin_id} to portfolio"}), 201
+
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid data format for amount or buy price"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Database error occurred"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
