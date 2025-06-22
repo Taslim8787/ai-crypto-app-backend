@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - AI Crypto Analyst</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Create Account</h1>
+        <div class="input-section" style="flex-direction: column;">
+            <input type="text" id="usernameInput" placeholder="Enter a username" style="margin-bottom: 10px;">
+            <input type="password" id="passwordInput" placeholder="Enter a password" style="margin-bottom: 10px;">
+            <button id="registerButton">Register</button>
+        </div>
+        <div id="message" class="hidden"><p id="messageText"></p></div>
+        <p style="margin-top: 20px;">Already have an account? <a href="/login" style="color: #007bff;">Login here</a></p>
+    </div>
+    <script src="/static/register.js"></script>
+</body>
+</html>
