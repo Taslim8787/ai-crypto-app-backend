@@ -6,7 +6,7 @@ from flask_cors import CORS
 import requests
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash # For password security
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Load environment variables
 load_dotenv()
@@ -32,7 +32,6 @@ print(f"DEBUG: Database URL loaded: {'Yes' if os.getenv('DATABASE_URL') else 'No
 
 
 # --- DATABASE MODELS ---
-# This defines the "User" table in our database
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -43,13 +42,14 @@ class User(db.Model):
 # --- END DATABASE MODELS ---
 
 
-# This is a one-time command to create the database tables.
-# We will run this manually using the Render Shell.
-@app.cli.command("create-db")
-def create_db():
-    """Creates the database tables."""
+# --- WORKAROUND FOR FREE TIER: Create DB Tables on Startup ---
+# This function will run once before the first request to the app
+@app.before_first_request
+def create_tables():
+    print("Creating database tables...")
     db.create_all()
     print("Database tables created.")
+# --- END WORKAROUND ---
 
 
 # --- Helper Functions (No Change) ---
@@ -67,8 +67,6 @@ def get_coin_data(coin_id):
 # --- API Endpoints ---
 @app.route('/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
-    # This function remains the same
-    # ... (code is unchanged, so omitting for brevity)
     if not COINGECKO_API_KEY:
         return jsonify({"error": "CoinGecko API key missing."}), 500
     coin_id = coin_symbol.lower()
@@ -95,7 +93,7 @@ def health_check():
         db_status = "ok"
     except Exception as e:
         print(f"Database connection error: {e}")
-        db__status = "error"
+        db_status = "error"
     return jsonify({
         "status": "ok",
         "message": "Backend is running!",
