@@ -30,6 +30,7 @@ class WatchlistItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     coin_id = db.Column(db.String(100), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    __table_args__ = (db.UniqueConstraint('user_id', 'coin_id', name='_user_coin_uc'),) # Prevents duplicates
 
     def serialize(self):
         return {'id': self.id, 'coin_id': self.coin_id}
@@ -53,7 +54,7 @@ def serve_watchlist(): return render_template('watchlist.html')
 # Auth Endpoints (Unchanged)
 @app.route('/api/register', methods=['POST'])
 def register_user():
-    # ... (logic is unchanged)
+    # ... logic unchanged
     data = request.get_json();
     if not data or not data.get('username') or not data.get('password'): return jsonify({"error": "Username and password required"}), 400
     if User.query.filter_by(username=data.get('username')).first(): return jsonify({"error": "Username already exists"}), 409
@@ -63,7 +64,7 @@ def register_user():
 
 @app.route('/api/login', methods=['POST'])
 def login_user():
-    # ... (logic is unchanged)
+    # ... logic unchanged
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'): return jsonify({"error": "Username and password required"}), 400
     user = User.query.filter_by(username=data.get('username')).first()
@@ -74,7 +75,7 @@ def login_user():
 # Analysis Endpoint (Unchanged)
 @app.route('/api/analyze/<coin_id>', methods=['GET'])
 def analyze_crypto(coin_id):
-    # ... (logic is unchanged)
+    # ... logic unchanged
     COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
     try:
         r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin_id.lower()}", headers={"x-cg-demo-api-key": COINGECKO_API_KEY})
@@ -91,23 +92,29 @@ def get_watchlist():
     watchlist_items = WatchlistItem.query.filter_by(user_id=current_user_id).all()
     return jsonify([item.serialize() for item in watchlist_items])
 
-# --- CORRECTED Watchlist ADD Endpoint ---
+# --- MOST ROBUST Watchlist ADD Endpoint ---
 @app.route('/api/watchlist/add', methods=['POST'])
 @jwt_required()
 def add_to_watchlist():
     current_user_id = get_jwt_identity()
-    data = request.get_json()
-
-    if not data or not data.get('coin_id'):
-        return jsonify({"error": "Coin ID is required"}), 400
     
-    coin_id = data.get('coin_id').lower()
+    # Check if the request has a JSON body
+    if not request.is_json:
+        return jsonify({"error": "Missing JSON in request"}), 400
+
+    data = request.get_json()
+    coin_id = data.get('coin_id', None)
+
+    if not coin_id:
+        return jsonify({"error": "Missing 'coin_id' in request body"}), 400
+    
+    coin_id = coin_id.lower()
 
     try:
         # Check if the coin is already in the user's watchlist
         existing_item = WatchlistItem.query.filter_by(user_id=current_user_id, coin_id=coin_id).first()
         if existing_item:
-            return jsonify({"message": f"{coin_id.capitalize()} is already in your watchlist"}), 200 # 200 OK is fine here
+            return jsonify({"message": f"{coin_id.capitalize()} is already in your watchlist"}), 200
 
         # If not, create and add the new item
         new_item = WatchlistItem(coin_id=coin_id, user_id=current_user_id)
@@ -117,10 +124,8 @@ def add_to_watchlist():
         return jsonify({"message": f"Added {coin_id.capitalize()} to watchlist"}), 201
         
     except Exception as e:
-        # If any database error occurs, roll back the session and return an error
         db.session.rollback()
-        print(f"Error adding to watchlist: {e}") # This will show in Render logs for debugging
-        return jsonify({"error": "Could not add coin to watchlist due to a server error."}), 500
+        return jsonify({"error": "Database error occurred."}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
