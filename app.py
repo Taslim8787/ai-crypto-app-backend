@@ -1,4 +1,4 @@
-# app.py - Final Watchlist Fix
+# app.py - Final Watchlist Fix (Remove create_all)
 
 import os
 from flask import Flask, jsonify, request, render_template
@@ -30,14 +30,12 @@ class WatchlistItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     coin_id = db.Column(db.String(100), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    __table_args__ = (db.UniqueConstraint('user_id', 'coin_id', name='_user_coin_uc'),) # Prevents duplicates
+    __table_args__ = (db.UniqueConstraint('user_id', 'coin_id', name='_user_coin_uc'),)
 
     def serialize(self):
         return {'id': self.id, 'coin_id': self.coin_id}
 
-# --- Create DB Tables on Startup ---
-with app.app_context():
-    db.create_all()
+# --- The create_all() block has been removed ---
 
 # --- Frontend Routes ---
 @app.route('/')
@@ -51,7 +49,6 @@ def serve_watchlist(): return render_template('watchlist.html')
 
 # --- API ENDPOINTS ---
 
-# Auth Endpoints (Unchanged)
 @app.route('/api/register', methods=['POST'])
 def register_user():
     # ... logic unchanged
@@ -72,7 +69,6 @@ def login_user():
     access_token = create_access_token(identity=user.id)
     return jsonify(access_token=access_token)
     
-# Analysis Endpoint (Unchanged)
 @app.route('/api/analyze/<coin_id>', methods=['GET'])
 def analyze_crypto(coin_id):
     # ... logic unchanged
@@ -84,7 +80,6 @@ def analyze_crypto(coin_id):
     return jsonify({ "coin_symbol": d.get('symbol', '').upper(), "name": d.get('name'), "current_price": d.get('market_data', {}).get('current_price', {}).get('usd'), "ai_analysis": "AI analysis is currently unavailable." })
 
 
-# Watchlist GET Endpoint (Unchanged)
 @app.route('/api/watchlist', methods=['GET'])
 @jwt_required()
 def get_watchlist():
@@ -92,39 +87,27 @@ def get_watchlist():
     watchlist_items = WatchlistItem.query.filter_by(user_id=current_user_id).all()
     return jsonify([item.serialize() for item in watchlist_items])
 
-# --- MOST ROBUST Watchlist ADD Endpoint ---
 @app.route('/api/watchlist/add', methods=['POST'])
 @jwt_required()
 def add_to_watchlist():
     current_user_id = get_jwt_identity()
-    
-    # Check if the request has a JSON body
-    if not request.is_json:
-        return jsonify({"error": "Missing JSON in request"}), 400
-
+    if not request.is_json: return jsonify({"error": "Missing JSON in request"}), 400
     data = request.get_json()
     coin_id = data.get('coin_id', None)
-
-    if not coin_id:
-        return jsonify({"error": "Missing 'coin_id' in request body"}), 400
+    if not coin_id: return jsonify({"error": "Missing 'coin_id' in request body"}), 400
     
     coin_id = coin_id.lower()
-
     try:
-        # Check if the coin is already in the user's watchlist
         existing_item = WatchlistItem.query.filter_by(user_id=current_user_id, coin_id=coin_id).first()
         if existing_item:
             return jsonify({"message": f"{coin_id.capitalize()} is already in your watchlist"}), 200
-
-        # If not, create and add the new item
         new_item = WatchlistItem(coin_id=coin_id, user_id=current_user_id)
         db.session.add(new_item)
         db.session.commit()
-        
         return jsonify({"message": f"Added {coin_id.capitalize()} to watchlist"}), 201
-        
     except Exception as e:
         db.session.rollback()
+        print(f"DATABASE ERROR on watchlist add: {e}") # Debugging print
         return jsonify({"error": "Database error occurred."}), 500
 
 if __name__ == '__main__':
