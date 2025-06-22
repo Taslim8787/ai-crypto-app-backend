@@ -10,16 +10,16 @@
     <div class="container">
         <h1>My Watchlist</h1>
         
+        <!-- NEW: Form to add a coin -->
+        <div class="input-section" style="margin-bottom: 30px;">
+            <input type="text" id="coinIdInput" placeholder="Enter coin ID (e.g., bitcoin)">
+            <button id="addButton">Add Coin</button>
+        </div>
+        <div id="add-message" class="hidden" style="margin-bottom: 20px;"><p></p></div>
+
         <!-- This is where the watchlist items will be displayed -->
         <div id="watchlist-container">
             <p id="loading-message">Loading your watchlist...</p>
-            <!-- Example of how an item will look (it will be created by JavaScript) -->
-            <!-- 
-            <div class="watchlist-item">
-                <span class="coin-name">Bitcoin (BTC)</span>
-                <span class="coin-price">$69,420.00</span>
-            </div> 
-            -->
         </div>
 
         <p style="margin-top: 20px;">

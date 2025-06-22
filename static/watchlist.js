@@ -1,45 +1,78 @@
 // static/watchlist.js
 
-// Function to run when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    // First, check if the user is logged in by looking for the access token
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-        // If no token, redirect to the login page
-        window.location.href = '/login';
-        return;
-    }
-    
-    // If logged in, fetch the watchlist
-    fetchWatchlist(token);
-});
-
+// --- Get references to all needed elements ---
 const watchlistContainer = document.getElementById('watchlist-container');
 const loadingMessage = document.getElementById('loading-message');
+const coinIdInput = document.getElementById('coinIdInput');
+const addButton = document.getElementById('addButton');
+const addMessageDiv = document.getElementById('add-message');
 
-async function fetchWatchlist(token) {
+// --- Main function to run when the page loads ---
+document.addEventListener('DOMContentLoaded', () => {
+    fetchWatchlist(); // Fetch the watchlist as soon as the page loads
+});
+
+// --- Add event listener for the new "Add Coin" button ---
+addButton.addEventListener('click', handleAddCoin);
+
+async function handleAddCoin() {
+    const coinId = coinIdInput.value.trim().toLowerCase();
+    if (!coinId) {
+        alert("Please enter a coin ID.");
+        return;
+    }
+
+    addButton.disabled = true;
+    addButton.textContent = 'Adding...';
+
     try {
-        // Fetch the user's saved watchlist from our backend
-        const response = await fetch('/api/watchlist', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}` // Send the token for authentication
-            }
+        const response = await fetch('/api/watchlist/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ coin_id: coinId })
         });
+        const data = await response.json();
+        
+        if (!response.ok) {
+            // Handle cases where user might not be logged in
+            if (response.status === 401) {
+                alert("You are not logged in. Redirecting to login page.");
+                window.location.href = '/login';
+                return;
+            }
+            throw new Error(data.error || 'Failed to add coin.');
+        }
+        
+        // Show success message and refresh the watchlist
+        alert(data.message);
+        coinIdInput.value = ''; // Clear the input box
+        fetchWatchlist(); // Reload the watchlist to show the new coin
 
-        if (response.status === 401) { // Unauthorized
-            // Token might be expired or invalid, redirect to login
-            window.location.href = '/login';
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    } finally {
+        addButton.disabled = false;
+        addButton.textContent = 'Add Coin';
+    }
+}
+
+async function fetchWatchlist() {
+    // Clear the current list and show loading message
+    watchlistContainer.innerHTML = '<p id="loading-message">Loading your watchlist...</p>';
+    
+    try {
+        const response = await fetch('/api/watchlist');
+        if (response.status === 401) { // Not logged in
+            watchlistContainer.innerHTML = '<p>Please <a href="/login">login</a> to see your watchlist.</p>';
             return;
         }
-
         const watchlistItems = await response.json();
 
         // Clear the "Loading..." message
-        loadingMessage.style.display = 'none';
+        watchlistContainer.innerHTML = '';
 
         if (watchlistItems.length === 0) {
-            watchlistContainer.innerHTML = '<p>Your watchlist is empty. Add coins from the main page!</p>';
+            watchlistContainer.innerHTML = '<p>Your watchlist is empty.</p>';
             return;
         }
 
@@ -49,61 +82,31 @@ async function fetchWatchlist(token) {
         }
 
     } catch (error) {
-        console.error('Error fetching watchlist:', error);
-        loadingMessage.textContent = 'Failed to load watchlist.';
+        watchlistContainer.innerHTML = '<p>Failed to load watchlist.</p>';
     }
 }
 
 async function fetchCoinData(coinId) {
     try {
-        // Use our own /api/analyze endpoint to get coin data
-        // This is efficient because our backend handles the CoinGecko API key
         const response = await fetch(`/api/analyze/${coinId}`);
         const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to fetch coin data');
-        }
-
-        // Create and append the new HTML element for this coin
-        createWatchlistItemElement(data);
-
+        if (!response.ok) throw new Error(data.error);
+        createWatchlistItemElement(data, coinId);
     } catch (error) {
         console.error(`Error fetching data for ${coinId}:`, error);
-        // Optionally, display an error for this specific coin
     }
 }
 
-function createWatchlistItemElement(coinData) {
-    // Create the main div for the item
+function createWatchlistItemElement(coinData, coinId) {
     const itemDiv = document.createElement('div');
-    itemDiv.className = 'watchlist-item'; // We'll add styling for this later
-    itemDiv.style.cssText = `
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        background-color: #2a2a2a; 
-        padding: 15px; 
-        border-radius: 8px; 
-        margin-bottom: 10px;
-    `;
-
-    // Create the span for the coin name
+    itemDiv.style.cssText = `display: flex; justify-content: space-between; align-items: center; background-color: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 10px;`;
     const nameSpan = document.createElement('span');
-    nameSpan.className = 'coin-name';
-    nameSpan.textContent = `${coinData.name} (${coinData.coin_symbol || coinId.toUpperCase()})`;
+    nameSpan.textContent = `${coinData.name} (${coinId.toUpperCase()})`;
     nameSpan.style.fontWeight = 'bold';
-
-    // Create the span for the coin price
     const priceSpan = document.createElement('span');
-    priceSpan.className = 'coin-price';
     const price = parseFloat(coinData.current_price);
-    priceSpan.textContent = `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
-
-    // Add the name and price to the item div
+    priceSpan.textContent = `$${price.toLocaleString('en-US')}`;
     itemDiv.appendChild(nameSpan);
     itemDiv.appendChild(priceSpan);
-
-    // Add the full item to the container on the page
     watchlistContainer.appendChild(itemDiv);
 }
