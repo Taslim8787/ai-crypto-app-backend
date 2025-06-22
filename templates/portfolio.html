@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Portfolio</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div id="nav-links"></div>
+        <h1>My Portfolio</h1>
+        <div class="add-trade-form">
+            <h3>Add New Investment</h3>
+            <input type="text" id="coinIdInput" placeholder="Coin ID (e.g., bitcoin)">
+            <input type="number" id="amountInput" placeholder="Amount">
+            <input type="number" id="priceInput" placeholder="Buy Price (per coin)">
+            <button id="addButton">Add</button>
+        </div>
+        <div id="message" class="hidden"><p></p></div>
+        <div id="portfolio-summary"></div>
+        <div id="portfolio-container"></div>
+    </div>
+    <script src="/static/auth.js"></script>
+    <script src="/static/portfolio.js"></script>
+</body>
+</html>

@@ -1,18 +1,15 @@
 // static/login.js
-const usernameInput = document.getElementById("usernameInput");
-const passwordInput = document.getElementById("passwordInput");
-const loginButton = document.getElementById("loginButton");
-const messageDiv = document.getElementById("message");
-const messageText = document.getElementById("messageText");
+const usernameInput = document.getElementById('usernameInput');
+const passwordInput = document.getElementById('passwordInput');
+const loginButton = document.getElementById('loginButton');
+const messageDiv = document.getElementById('message');
 
-async function handleLogin() {
+loginButton.addEventListener('click', async () => {
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
-    if (!username || !password) { showMessage("Username and password required.", "error"); return; }
-    
-    loginButton.disabled = true;
+    if (!username || !password) return;
+
     try {
-        // We no longer need to pass headers manually for sessions
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -21,17 +18,13 @@ async function handleLogin() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         
-        // No need to save a token. The browser handles the session cookie automatically.
-        showMessage("Login successful! Redirecting...", "success");
+        // This time, we use the JWT token from the response
+        localStorage.setItem('accessToken', data.access_token);
+        messageDiv.innerHTML = `<p>Login successful! Redirecting...</p>`;
+        messageDiv.classList.remove('hidden');
         setTimeout(() => { window.location.href = '/'; }, 1500);
     } catch (error) {
-        showMessage(error.message, "error");
-        loginButton.disabled = false;
+        messageDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+        messageDiv.classList.remove('hidden');
     }
-}
-function showMessage(message, type) {
-    messageText.textContent = message;
-    messageDiv.className = type;
-    messageDiv.classList.remove("hidden");
-}
-loginButton.addEventListener("click", handleLogin);
+});
