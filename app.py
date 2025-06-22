@@ -1,7 +1,7 @@
 # app.py
 
 import os
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template # Note: send_from_directory is removed
 import requests
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
@@ -11,7 +11,7 @@ from flask_jwt_extended import create_access_token, JWTManager
 # Load environment variables
 load_dotenv()
 
-# Initialize Flask app, telling it where to find the static files
+# Initialize Flask app, telling it where to find the static/template files
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
 # --- JWT Configuration ---
@@ -52,23 +52,25 @@ def serve_login():
 def serve_register():
     return render_template('register.html')
 
+# THE BAD ROUTE HAS BEEN REMOVED. FLASK HANDLES STATIC FILES AUTOMATICALLY.
+
 # =================================================================
 # --- API ENDPOINTS ---
 # =================================================================
-# Note: All API endpoints are now prefixed with /api/
 
 @app.route('/api/register', methods=['POST'])
 def register_user():
-    data = request.get_json()
+    # ... (logic is unchanged)
+    data = request.get_json();
     if not data or not data.get('username') or not data.get('password'): return jsonify({"error": "Username and password required"}), 400
     if User.query.filter_by(username=data.get('username')).first(): return jsonify({"error": "Username already exists"}), 409
     new_user = User(username=data.get('username'), password_hash=generate_password_hash(data.get('password')))
-    db.session.add(new_user)
-    db.session.commit()
+    db.session.add(new_user); db.session.commit()
     return jsonify({"message": f"User '{data.get('username')}' created successfully"}), 201
 
 @app.route('/api/login', methods=['POST'])
 def login_user():
+    # ... (logic is unchanged)
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'): return jsonify({"error": "Username and password required"}), 400
     user = User.query.filter_by(username=data.get('username')).first()
@@ -78,13 +80,13 @@ def login_user():
 
 @app.route('/api/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
+    # ... (logic is unchanged)
     COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
     coin_id = coin_symbol.lower()
     try:
         r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin_id}", headers={"x-cg-demo-api-key": COINGECKO_API_KEY})
-        r.raise_for_status()
-        d = r.json()
-    except: return jsonify({"error": f"Could not retrieve data for {coin_id}. Check ID."}), 404
+        r.raise_for_status(); d = r.json()
+    except: return jsonify({"error": f"Could not retrieve data for {coin_id}"}), 404
     return jsonify({ "name": d['name'], "current_price": d['market_data']['current_price']['usd'], "ai_analysis": "AI analysis is currently unavailable." })
     
 if __name__ == '__main__':
