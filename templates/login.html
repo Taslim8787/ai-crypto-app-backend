@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AI Crypto Analyst</title>
+    <!-- We reuse the same style sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Login to Your Account</h1>
+        <div class="input-section" style="flex-direction: column;">
+            <input type="text" id="usernameInput" placeholder="Username">
+            <br>
+            <input type="password" id="passwordInput" placeholder="Password">
+            <br>
+            <button id="loginButton">Login</button>
+        </div>
+
+        <!-- This div will show status messages -->
+        <div id="message" class="hidden">
+            <p id="messageText"></p>
+        </div>
+
+        <p style="margin-top: 20px;">
+            Don't have an account? 
+            <a href="register.html" style="color: #007bff;">Register here</a>
+        </p>
+    </div>
+
+    <!-- We will create a new JS file for this page -->
+    <script src="login.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Crypto Analyst</title>
+    <!-- We will create style.css in the next step -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI Crypto Analyst</h1>
+        <div class="input-section">
+            <input type="text" id="coinInput" placeholder="Enter full coin ID (e.g., bitcoin, ethereum)">
+            <button id="analyzeButton">Analyze</button>
+        </div>
+
+        <!-- This div will show while data is loading -->
+        <div id="loading" class="hidden">
+            <p>Analyzing... Please wait.</p>
+        </div>
+
+        <!-- This div will show the results -->
+        <div id="result" class="result-section hidden">
+            <h2>Analysis for <span id="coinSymbolDisplay"></span></h2>
+            <p><strong>Name:</strong> <span id="coinName"></span></p>
+            <p><strong>Current Price:</strong> $<span id="currentPrice"></span></p>
+            <p><strong>Market Cap:</strong> $<span id="marketCap"></span></p>
+            <p><strong>24h Volume:</strong> $<span id="volume24h"></span></p>
+            <h3>AI Analysis & Advice:</h3>
+            <div id="aiAnalysisContent" class="ai-analysis"></div>
+        </div>
+
+        <!-- This div will show if there is an error -->
+        <div id="error" class="error-section hidden">
+            <p id="errorMessage"></p>
+        </div>
+    </div>
+
+    <!-- We will create script.js later -->
+    <script src="script.js"></script>
+</body>
+</html>

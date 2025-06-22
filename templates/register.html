@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - AI Crypto Analyst</title>
+    <!-- We can reuse the same style sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Create Account</h1>
+        <div class="input-section" style="flex-direction: column;">
+            <input type="text" id="usernameInput" placeholder="Enter a username">
+            <br>
+            <input type="password" id="passwordInput" placeholder="Enter a password">
+            <br>
+            <button id="registerButton">Register</button>
+        </div>
+
+        <!-- This div will show status messages -->
+        <div id="message" class="hidden">
+            <p id="messageText"></p>
+        </div>
+
+        <p style="margin-top: 20px;">
+            <a href="index.html" style="color: #007bff;">Back to Main App</a>
+        </p>
+    </div>
+
+    <!-- We will create a new JS file for this page -->
+    <script src="register.js"></script>
+</body>
+</html>
