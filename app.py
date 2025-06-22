@@ -15,9 +15,9 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 
-# --- THIS IS THE SIMPLEST & MOST ROBUST CORS SETTING ---
-# This applies CORS headers to all routes for all origins and methods
-CORS(app)
+# --- FINAL, MOST ROBUST CORS SETTING ---
+# This configuration is designed to handle all preflight OPTIONS requests
+CORS(app, supports_credentials=True)
 # --- END CORS FIX ---
 
 # --- JWT Configuration ---
@@ -80,7 +80,6 @@ def login_user():
         return jsonify({"error": "Invalid username or password"}), 401
 
 # --- Other Endpoints ---
-# ... (the /analyze and /health routes remain unchanged)
 @app.route('/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
     COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
