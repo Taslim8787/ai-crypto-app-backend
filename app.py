@@ -7,14 +7,20 @@ import requests
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import create_access_token, JWTManager # <-- NEW IMPORTS
 
 # Load environment variables
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-# THIS IS THE ROBUST CORS SETTING, ALLOWING ALL ROUTES
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# --- JWT Configuration ---
+# This key is used to sign the tokens. KEEP IT SECRET.
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "a-default-fallback-secret-key") # Change this in production
+jwt = JWTManager(app)
+# --- END JWT Configuration ---
 
 # --- Database Configuration ---
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
@@ -23,76 +29,72 @@ db = SQLAlchemy(app)
 # --- END Database Configuration ---
 
 
-# --- API Keys (loaded from environment variables) ---
-COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
-
-
 # --- DATABASE MODELS ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
 
-    def __repr__(self):
-        return f'<User {self.username}>'
-# --- END DATABASE MODELS ---
-
-
 # --- Create DB Tables on Startup (if they don't exist) ---
 with app.app_context():
     db.create_all()
-    print("Database tables checked/created.")
-# --- END WORKAROUND ---
-
 
 # --- User Registration Endpoint ---
 @app.route('/register', methods=['POST'])
 def register_user():
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-        
-    username = data.get('username')
-    password = data.get('password')
-
-    if not username or not password:
+    if not data or not data.get('username') or not data.get('password'):
         return jsonify({"error": "Username and password are required"}), 400
 
-    if User.query.filter_by(username=username).first():
+    if User.query.filter_by(username=data.get('username')).first():
         return jsonify({"error": "Username already exists"}), 409
 
     new_user = User(
-        username=username,
-        password_hash=generate_password_hash(password, method='pbkdf2:sha256')
+        username=data.get('username'),
+        password_hash=generate_password_hash(data.get('password'), method='pbkdf2:sha256')
     )
-
     db.session.add(new_user)
     db.session.commit()
+    return jsonify({"message": f"User '{data.get('username')}' created successfully"}), 201
 
-    return jsonify({"message": f"User '{username}' created successfully"}), 201
-# --- END: User Registration Endpoint ---
+# --- NEW: User Login Endpoint ---
+@app.route('/login', methods=['POST'])
+def login_user():
+    data = request.get_json()
+    if not data or not data.get('username') or not data.get('password'):
+        return jsonify({"error": "Username and password are required"}), 400
 
-# --- Other Endpoints ---
+    username = data.get('username')
+    password = data.get('password')
+
+    user = User.query.filter_by(username=username).first()
+
+    # Check if user exists and if the password is correct
+    if user and check_password_hash(user.password_hash, password):
+        # Create a new token with the user's ID as identity
+        access_token = create_access_token(identity=user.id)
+        return jsonify(access_token=access_token)
+
+    return jsonify({"error": "Invalid username or password"}), 401 # 401 is "Unauthorized"
+# --- END: User Login Endpoint ---
+
+
+# --- Other Endpoints (No Change) ---
 @app.route('/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
-    if not COINGECKO_API_KEY:
-        return jsonify({"error": "CoinGecko API key missing."}), 500
+    # ... (code is unchanged)
+    COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
+    if not COINGECKO_API_KEY: return jsonify({"error": "CoinGecko API key missing."}), 500
     coin_id = coin_symbol.lower()
     try:
-        coin_data_response = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin_id}", headers={"x-cg-demo-api-key": COINGECKO_API_KEY})
-        coin_data_response.raise_for_status()
-        coin_data = coin_data_response.json()
-    except requests.exceptions.RequestException:
-         return jsonify({"error": f"Could not retrieve real-time data for {coin_id}. Check the coin ID."}), 404
-
-    current_price = coin_data['market_data']['current_price']['usd']
-    market_cap = coin_data['market_data']['market_cap']['usd']
-    volume_24h = coin_data['market_data']['total_volume']['usd']
-    name = coin_data['name']
+        r = requests.get(f"https://api.coingecko.com/api/v3/coins/{coin_id}", headers={"x-cg-demo-api-key": COINGECKO_API_KEY})
+        r.raise_for_status()
+        d = r.json()
+    except: return jsonify({"error": f"Could not retrieve data for {coin_id}. Check ID."}), 404
     return jsonify({
-        "coin_symbol": coin_symbol.upper(), "name": name, "current_price": current_price,
-        "market_cap": market_cap, "volume_24h": volume_24h,
-        "ai_analysis": "AI analysis is currently unavailable. Check back later."
+        "coin_symbol": coin_symbol.upper(), "name": d['name'], "current_price": d['market_data']['current_price']['usd'],
+        "market_cap": d['market_data']['market_cap']['usd'], "volume_24h": d['market_data']['total_volume']['usd'],
+        "ai_analysis": "AI analysis is currently unavailable."
     })
 
 @app.route('/health', methods=['GET'])
