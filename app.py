@@ -7,7 +7,7 @@ import requests
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, JWTManager # <-- NEW IMPORTS
+from flask_jwt_extended import create_access_token, JWTManager
 
 # Load environment variables
 load_dotenv()
@@ -17,8 +17,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- JWT Configuration ---
-# This key is used to sign the tokens. KEEP IT SECRET.
-app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "a-default-fallback-secret-key") # Change this in production
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "a-default-fallback-secret-key")
 jwt = JWTManager(app)
 # --- END JWT Configuration ---
 
@@ -35,7 +34,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
 
-# --- Create DB Tables on Startup (if they don't exist) ---
+# --- Create DB Tables on Startup ---
 with app.app_context():
     db.create_all()
 
@@ -45,10 +44,8 @@ def register_user():
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({"error": "Username and password are required"}), 400
-
     if User.query.filter_by(username=data.get('username')).first():
         return jsonify({"error": "Username already exists"}), 409
-
     new_user = User(
         username=data.get('username'),
         password_hash=generate_password_hash(data.get('password'), method='pbkdf2:sha256')
@@ -57,7 +54,7 @@ def register_user():
     db.session.commit()
     return jsonify({"message": f"User '{data.get('username')}' created successfully"}), 201
 
-# --- NEW: User Login Endpoint ---
+# --- CORRECTED User Login Endpoint ---
 @app.route('/login', methods=['POST'])
 def login_user():
     data = request.get_json()
@@ -69,17 +66,22 @@ def login_user():
 
     user = User.query.filter_by(username=username).first()
 
-    # Check if user exists and if the password is correct
-    if user and check_password_hash(user.password_hash, password):
-        # Create a new token with the user's ID as identity
+    # --- THIS IS THE FIX ---
+    # First, check if the user was found. If not, it's invalid credentials.
+    if not user:
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    # Only if the user exists, then check the password hash.
+    if check_password_hash(user.password_hash, password):
         access_token = create_access_token(identity=user.id)
         return jsonify(access_token=access_token)
-
-    return jsonify({"error": "Invalid username or password"}), 401 # 401 is "Unauthorized"
+    else:
+        # If the password check fails, it's also invalid credentials.
+        return jsonify({"error": "Invalid username or password"}), 401
 # --- END: User Login Endpoint ---
 
 
-# --- Other Endpoints (No Change) ---
+# --- Other Endpoints ---
 @app.route('/analyze/<coin_symbol>', methods=['GET'])
 def analyze_crypto(coin_symbol):
     # ... (code is unchanged)
