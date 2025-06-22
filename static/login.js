@@ -12,6 +12,7 @@ async function handleLogin() {
     
     loginButton.disabled = true;
     try {
+        // We no longer need to pass headers manually for sessions
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -20,7 +21,7 @@ async function handleLogin() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         
-        localStorage.setItem('accessToken', data.access_token);
+        // No need to save a token. The browser handles the session cookie automatically.
         showMessage("Login successful! Redirecting...", "success");
         setTimeout(() => { window.location.href = '/'; }, 1500);
     } catch (error) {
@@ -28,7 +29,6 @@ async function handleLogin() {
         loginButton.disabled = false;
     }
 }
-
 function showMessage(message, type) {
     messageText.textContent = message;
     messageDiv.className = type;

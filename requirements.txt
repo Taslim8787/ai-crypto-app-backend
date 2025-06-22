@@ -4,5 +4,4 @@ python-dotenv
 Flask-SQLAlchemy
 psycopg2-binary
 werkzeug
-Flask-JWT-Extended
 gunicorn
