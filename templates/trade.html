@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade History - AI Crypto Analyst</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div id="nav-links"></div>
+        <h1>Trade Logger & Win Ratio</h1>
+
+        <!-- Form to log a new trade -->
+        <div class="add-trade-form" style="margin-bottom: 30px;">
+            <h3>Log a New Trade</h3>
+            <input type="text" id="coinIdInput" placeholder="Coin ID (e.g., bitcoin)">
+            <div class="input-section" style="margin-top: 10px;">
+                <input type="number" id="entryPriceInput" placeholder="Entry Price">
+                <input type="number" id="exitPriceInput" placeholder="Exit Price">
+            </div>
+            <div class="input-section" style="margin-top: 10px;">
+                <select id="tradeTypeSelect">
+                    <option value="long">Long</option>
+                    <option value="short">Short</option>
+                </select>
+                <button id="logTradeButton">Log Trade</button>
+            </div>
+        </div>
+        <div id="message" class="hidden"><p></p></div>
+
+        <!-- Section for Win Ratio -->
+        <div id="win-ratio-summary">
+            <h3>Performance</h3>
+            <p>Loading stats...</p>
+        </div>
+
+        <!-- Section for Trade History -->
+        <div id="trade-history-container" style="margin-top: 20px;">
+            <h3>Trade History</h3>
+            <p>Loading history...</p>
+        </div>
+
+    </div>
+    <script src="/static/auth.js"></script>
+    <script src="/static/trades.js"></script>
+</body>
+</html>
